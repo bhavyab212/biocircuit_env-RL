@@ -1,4 +1,5 @@
 import os
+import time
 import json
 from openai import OpenAI
 from environment import BioCircuitEnv
@@ -34,16 +35,20 @@ def ask_agent(state):
     
     user_msg = f"""TASK: {state['task']}
 TASK HINT: {state.get('hint', 'Build a functional transcription unit.')}
+TARGET FLUORESCENCE: {state['target']}
 CURRENT CIRCUIT (5' to 3'): {placed}
 REMAINING ALLOWED PARTS: {remaining}
 
-Your job: Place the single best next DNA part to build a correct genetic circuit
-that achieves the target fluorescence output of {state['target']}.
+RULES:
+1. Always start with a PROMOTER if the circuit is empty.
+2. Place parts in biological order: Promoter first, Terminator last.
+3. Choose only from REMAINING ALLOWED PARTS — do not invent parts.
+4. Use the TASK HINT to decide which regulatory parts to include.
 
-Respond ONLY in valid JSON:
+YOUR RESPONSE (valid JSON only, no extra text):
 {{
-  "action": {{"type": "place", "part": "part_name_from_remaining_list"}},
-  "reasoning": "Biological explanation of why this part should go here, referencing the specific molecular mechanism."
+  "action": {{"type": "place", "part": "exact_part_name_from_remaining_list"}},
+  "reasoning": "Biological explanation referencing the specific molecular mechanism for this task."
 }}"""
 
     # Now the variables exist when we call the API
@@ -81,6 +86,7 @@ def run_hackathon_eval(task_idx):
         agent_reasoning.append(decision["reasoning"])
         
         state, reward, done = env.step(action)
+        time.sleep(1.2)
         print(f"Step {step+1}: Placed {action.get('part')} | Reward: {reward}")
         
         if done:

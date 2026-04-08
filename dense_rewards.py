@@ -44,41 +44,9 @@ from typing import Optional
 import copy
 
 # Re-use the part library defined in reporter_logic.py
-# (In production these would be imported: from reporter_logic import ...)
+from reporter_logic import PartType, DNAPart, PROMOTER_TYPES, GENE_TYPES, PROMOTER_STRENGTH
 
-class PartType(str, Enum):
-    STRONG_PROMOTER   = "strong_promoter"
-    MEDIUM_PROMOTER   = "medium_promoter"
-    WEAK_PROMOTER     = "weak_promoter"
-    OPERATOR          = "operator"
-    REPORTER_GENE     = "reporter_gene"
-    STRUCTURAL_GENE   = "structural_gene"
-    REPRESSOR_GENE    = "repressor_gene"
-    CAP_BINDING_SITE  = "cap_binding_site"
-    TERMINATOR        = "terminator"
-    ENHANCER          = "enhancer"
-
-
-PROMOTER_TYPES = {
-    PartType.STRONG_PROMOTER,
-    PartType.MEDIUM_PROMOTER,
-    PartType.WEAK_PROMOTER,
-}
-GENE_TYPES = {PartType.REPORTER_GENE, PartType.STRUCTURAL_GENE}
-
-PROMOTER_STRENGTH = {
-    PartType.STRONG_PROMOTER: 1.0,
-    PartType.MEDIUM_PROMOTER: 0.5,
-    PartType.WEAK_PROMOTER:   0.2,
-}
-
-
-@dataclass
-class DNAPart:
-    part_type       : PartType
-    slot_index      : int
-    inducer_present : bool = False
-    cAMP_present    : bool = False
+# (Definitions removed in favor of imports above)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -240,7 +208,7 @@ class CheckpointResult:
     step_feedback      : str            = ""
     warnings           : list[str]      = field(default_factory=list)
     mechanism_trace    : list[str]      = field(default_factory=list)
-    action_mask        : list[int]      = field(default_factory=lambda: [1]*10)
+    action_mask        : list[int]      = field(default_factory=lambda: [1]*len(PART_TYPE_ORDER))
     cumulative_reward  : float          = 0.0
 
 
