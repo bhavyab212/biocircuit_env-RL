@@ -1,0 +1,82 @@
+name: SynBio-RL
+description: >
+  A synthetic biology circuit-design environment where an AI agent assembles
+  DNA parts (promoters, operators, genes, terminators) to solve 15 progressive
+  genetic circuit challenges. Grounded in real molecular biology — transcription
+  regulation, CAP/cAMP activation, LacI repression, enhancer DNA looping.
+version: "1.0.0"
+author: bhavyab212
+tags:
+  - openenv
+  - synthetic-biology
+  - reinforcement-learning
+  - llm-agent
+  - bioinformatics
+
+tasks:
+  - id: basic_initiation
+    name: Basic Initiation
+    difficulty: easy
+    description: Assemble a minimal functional transcription unit
+    score_range: [0.0, 1.0]
+
+  - id: biological_brake
+    name: The Biological Brake
+    difficulty: medium
+    description: Build a repressor-based NOT gate to silence gene expression
+    score_range: [0.0, 1.0]
+
+  - id: relay_amplification
+    name: Relay Amplification
+    difficulty: hard
+    description: Design a multi-component signal amplification cascade
+    score_range: [0.0, 1.0]
+
+observation_space:
+  type: object
+  properties:
+    task:
+      type: string
+      description: Current task name
+    circuit:
+      type: array
+      items:
+        type: string
+      description: DNA parts placed so far in 5 to 3 order
+    available_parts:
+      type: array
+      items:
+        type: string
+      description: Parts available to place in this task
+    target:
+      type: number
+      description: Target fluorescence output 0.0 to 1.0
+    fluorescence:
+      type: number
+      description: Current fluorescence output
+    steps:
+      type: integer
+      description: Steps taken so far
+    hint:
+      type: string
+      description: Biological hint for this task
+
+action_space:
+  type: object
+  properties:
+    type:
+      type: string
+      enum: [place, submit]
+      description: Action type
+    part:
+      type: string
+      description: DNA part to place from available_parts
+
+reward:
+  type: number
+  range: [0.0, 1.0]
+  description: >
+    Normalized score. Math reward R times Science Grade G, divided by 10
+    to normalize to 0.0-1.0 range. Dense per-step rewards guide partial progress.
+
+endpoint: http://0.0.0.0:7860
