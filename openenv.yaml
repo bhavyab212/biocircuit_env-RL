@@ -79,4 +79,4 @@ reward:
     Normalized score. Math reward R times Science Grade G, divided by 10
     to normalize to 0.0-1.0 range. Dense per-step rewards guide partial progress.
 
-endpoint: http://0.0.0.0:7860
+endpoint: https://bhavyab2-synbio-rl.hf.space
