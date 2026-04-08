@@ -28,7 +28,7 @@ class BioCircuitEnv:
             "steps": self.steps,
             "available_parts": self.task["available_parts"],
             "fluorescence": self.last_result.fluorescence_output if self.last_result else 0.0,
-            "math_reward":  self.last_result.math_reward if self.last_result else 0.0,
+            "math_reward": self.last_result.math_reward if self.last_result else 0.0,
             "hint": self.task.get("hint", "")
         }
 
