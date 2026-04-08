@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "synbio-rl"
+version = "1.0.0"
+description = "Synthetic Biology Reinforcement Learning Environment — Meta OpenEnv Hackathon 2026"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+  {name = "bhavyab212"}
+]
+keywords = ["openenv", "reinforcement-learning", "synthetic-biology", "llm-agent"]
+dependencies = [
+    "fastapi==0.111.0",
+    "uvicorn==0.29.0",
+    "pydantic==2.7.1",
+    "python-dotenv==1.0.1",
+    "openai==1.30.1",
+    "python-multipart==0.0.9"
+]
+
+[project.urls]
+Homepage = "https://huggingface.co/spaces/Bhavyab2/SynBio-RL"
+Repository = "https://github.com/bhavyab212/biocircuit_env-RL"
+
+[tool.setuptools.packages.find]
+where = ["."]
