@@ -34,11 +34,14 @@ logger = logging.getLogger("llm_judge")
 # ─────────────────────────────────────────────────────────────────────────────
 # 1.  CONSTANTS - Update for current Groq support
 # ─────────────────────────────────────────────────────────────────────────────
-LLAMA_API_BASE    = "api.groq.com"
-LLAMA_API_PATH    = "/openai/v1/chat/completions"
+_GROQ_BASE = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
+LLAMA_API_BASE = _GROQ_BASE.replace("https://", "").split("/")[0]
+LLAMA_API_PATH = "/" + "/".join(_GROQ_BASE.replace("https://", "").split("/")[1:])
+if not LLAMA_API_PATH.endswith("/chat/completions"):
+    LLAMA_API_PATH = LLAMA_API_PATH.rstrip("/") + "/chat/completions"
 
 # Change this from llama-3.3-70b-specdec to the latest 70B model:
-LLAMA_MODEL       = "llama-3.3-70b-versatile"
+LLAMA_MODEL = os.getenv("JUDGE_MODEL", "llama-3.3-70b-versatile")
 # Retry configuration
 MAX_RETRIES      : int   = 3
 RETRY_BASE_DELAY : float = 2.0   
@@ -159,7 +162,6 @@ Lethal Errors: [None] OR [List]
 
 
 def _call_llama_api(messages: list[dict], config: LLMJudgeConfig) -> str:
-    """Modified to use Groq API specifically."""
     host = LLAMA_API_BASE
     path = LLAMA_API_PATH
     key  = config.api_key
@@ -170,23 +172,52 @@ def _call_llama_api(messages: list[dict], config: LLMJudgeConfig) -> str:
         "temperature" : config.temperature,
         "max_tokens"  : config.max_tokens,
     })
-
     headers = {
         "Content-Type"  : "application/json",
         "Authorization" : f"Bearer {key}",
     }
 
-    conn = http.client.HTTPSConnection(host, timeout=API_TIMEOUT)
-    conn.request("POST", path, body=payload, headers=headers)
-    response = conn.getresponse()
-    response_body = response.read().decode("utf-8")
-    conn.close()
+    last_error = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            conn = http.client.HTTPSConnection(host, timeout=API_TIMEOUT)
+            conn.request("POST", path, body=payload, headers=headers)
+            response     = conn.getresponse()
+            response_body = response.read().decode("utf-8")
+            conn.close()
 
-    if response.status == 200:
-        data = json.loads(response_body)
-        return data["choices"][0]["message"]["content"]
-    else:
-        raise RuntimeError(f"Groq API Error {response.status}: {response_body}")
+            if response.status == 200:
+                data = json.loads(response_body)
+                return data["choices"][0]["message"]["content"]
+
+            elif response.status in (429, 500, 502, 503):
+                wait = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    f"Groq API returned {response.status} on attempt "
+                    f"{attempt+1}/{MAX_RETRIES}. Retrying in {wait:.1f}s..."
+                )
+                time.sleep(wait)
+                last_error = RuntimeError(
+                    f"Groq API Error {response.status}: {response_body}"
+                )
+
+            else:
+                raise RuntimeError(
+                    f"Groq API Error {response.status}: {response_body}"
+                )
+
+        except RuntimeError:
+            raise
+        except Exception as e:
+            last_error = e
+            wait = RETRY_BASE_DELAY * (2 ** attempt)
+            logger.warning(
+                f"Connection error on attempt {attempt+1}/{MAX_RETRIES}: "
+                f"{e}. Retrying in {wait:.1f}s..."
+            )
+            time.sleep(wait)
+
+    raise last_error or RuntimeError("Max retries exceeded with no response.")
 
 
 def _parse_grade(response_text: str) -> tuple[float, str, str, list[str], bool]:
@@ -210,6 +241,37 @@ def _parse_grade(response_text: str) -> tuple[float, str, str, list[str], bool]:
 
     return grade, mechanism_check, critique, lethal_errors, parse_success
 
+def _validate_grade(
+    grade        : float,
+    lethal_errors: list[str],
+    critique     : str,
+    warnings     : list[str],
+) -> float:
+    if lethal_errors:
+        warnings.append(
+            f"Lethal structural error detected → grade forced to {LETHAL_ERROR_GRADE}"
+        )
+        return LETHAL_ERROR_GRADE
+
+    crit_lower = critique.lower()
+
+    if "silencer" in crit_lower and "repressor" not in crit_lower:
+        warnings.append(
+            "Silencer used instead of Repressor → grade capped at "
+            f"{FLAWED_LOGIC_GRADE_CAP}"
+        )
+        return min(grade, FLAWED_LOGIC_GRADE_CAP)
+
+    if "strong promoter" in crit_lower and (
+        "unnecessary" in crit_lower or "weak" in crit_lower
+    ):
+        warnings.append(
+            "Strong Promoter used where Weak suffices → grade capped at "
+            f"{BURDEN_GRADE_CAP}"
+        )
+        return min(grade, BURDEN_GRADE_CAP)
+
+    return max(0.0, min(grade, 1.0))
 
 def llm_judge(circuit_parts, mechanism_trace, fluorescence_out, math_reward, task_id, task_name, config=None):
     if config is None: config = LLMJudgeConfig()
@@ -224,6 +286,7 @@ def llm_judge(circuit_parts, mechanism_trace, fluorescence_out, math_reward, tas
     try:
         raw_response = _call_llama_api(messages, config)
         grade, mech, crit, errs, ok = _parse_grade(raw_response)
+        grade = _validate_grade(grade, errs, crit, verdict.warnings)
         
         verdict.science_grade = grade
         verdict.mechanism_check = mech

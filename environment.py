@@ -17,6 +17,7 @@ class BioCircuitEnv:
         self.circuit = [] 
         self.steps = 0
         self.done = False
+        self.last_result = None
         return self.state()
 
     def state(self):
@@ -25,7 +26,10 @@ class BioCircuitEnv:
             "target": self.task["target_output"],
             "circuit": [p.part_type.value for p in self.circuit],
             "steps": self.steps,
-            "available_parts": self.task["available_parts"]
+            "available_parts": self.task["available_parts"],
+            "fluorescence": self.last_result.fluorescence_output if self.last_result else 0.0,
+            "math_reward":  self.last_result.math_reward if self.last_result else 0.0,
+            "hint": self.task.get("hint", "")
         }
 
     def step(self, action):
@@ -63,18 +67,19 @@ class BioCircuitEnv:
 
         # 3. Final Evaluation Logic
         if self.done:
-            # FIX: Task 3 (The Switch) requires Inducer simulation to be 'True'
-            # to trigger the conformational change in the repressor.
-            inducer_active = (self.task["id"] == "TASK_03")
-            
             result = calculate_reporter_logic(
-                self.circuit, 
-                self.task["target_output"], 
-                inducer=inducer_active
+                dna_sequence        = self.circuit,
+                target_fluorescence = self.task["target_output"],
+                target_part_count   = len(self.task["available_parts"])
             )
+            self.last_result = result
             
             # Final Reward (R)
             reward = result.math_reward if not is_lethal else -10.0
+
+            if self.done and not is_lethal:
+                if self.current_task_idx < len(self.tasks) - 1:
+                    self.current_task_idx += 1
         else:
             reward = step_reward
 

@@ -33,19 +33,17 @@ def ask_agent(state):
     system_msg = "You are a Synthetic Biology Expert. You ONLY respond in valid JSON."
     
     user_msg = f"""TASK: {state['task']}
-CURRENT CIRCUIT: {placed}
+TASK HINT: {state.get('hint', 'Build a functional transcription unit.')}
+CURRENT CIRCUIT (5' to 3'): {placed}
 REMAINING ALLOWED PARTS: {remaining}
 
-LOGIC REQUIREMENTS FOR LEVEL 3:
-1. Sequence: Promoter -> Operator -> Repressor -> Gene -> Terminator.
-2. REASONING MUST: Explain that the LIGAND (Inducer) binds to the REPRESSOR.
-3. REASONING MUST: State this causes a CONFORMATIONAL CHANGE.
-4. REASONING MUST: State the Repressor then DETACHES from the Operator to turn the gene ON.
+Your job: Place the single best next DNA part to build a correct genetic circuit
+that achieves the target fluorescence output of {state['target']}.
 
-YOUR RESPONSE (JSON ONLY):
+Respond ONLY in valid JSON:
 {{
-  "action": {{"type": "place", "part": "part_name"}},
-  "reasoning": "Specifically describe the ligand-induced conformational change and release of steric hindrance."
+  "action": {{"type": "place", "part": "part_name_from_remaining_list"}},
+  "reasoning": "Biological explanation of why this part should go here, referencing the specific molecular mechanism."
 }}"""
 
     # Now the variables exist when we call the API
@@ -103,6 +101,13 @@ def run_hackathon_eval(task_idx):
     print(f"Science Grade: {verdict.science_grade}")
     print(f"Critique: {verdict.critique}")
     print(f"FINAL SCORE (R x G): {final_score}")
+    return final_score
 
 if __name__ == "__main__":
-    run_hackathon_eval(3) # Move to Level 4
+    results = []
+    for task_idx in range(15):
+        score = run_hackathon_eval(task_idx)
+        results.append({"task": task_idx + 1, "final_score": score})
+    print("\n=== ALL 15 TASK RESULTS ===")
+    for r in results:
+        print(f"  Task {r['task']:02d}: Final Score = {r['final_score']:.4f}")

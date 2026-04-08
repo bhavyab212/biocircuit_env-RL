@@ -57,6 +57,7 @@ class ReporterResult:
     complexity_score    : float = 0.0
     lethal_error        : bool  = False
     lethal_error_reason : Optional[str] = None
+    is_expressing       : bool = False
     warnings            : list[str] = field(default_factory=list)
     mechanism_trace     : list[str] = field(default_factory=list)
 
@@ -78,7 +79,7 @@ def _check_lethal_errors(sequence, result):
         return True
     return False
 
-def calculate_reporter_logic(dna_sequence, target_fluorescence=1.0, target_part_count=4, inducer=False):
+def calculate_reporter_logic(dna_sequence, target_fluorescence=1.0, target_part_count=4):
     # Sort for 5' to 3' directionality
     sequence = sorted(dna_sequence, key=lambda p: p.slot_index)
     result = ReporterResult()
@@ -90,28 +91,51 @@ def calculate_reporter_logic(dna_sequence, target_fluorescence=1.0, target_part_
 
     # 2. Metabolic Burden
     raw_cost = sum(METABOLIC_COST.get(p.part_type, 0.0) for p in sequence)
-    result.metabolic_burden = min(raw_cost / 3.0, 1.0)
+    max_cost = sum(METABOLIC_COST.values())
+    result.metabolic_burden = min(raw_cost / max_cost, 1.0)
 
     # 3. Transcription Rate (Inducible Logic)
     promoter = next(p for p in sequence if p.part_type in PROMOTER_TYPES)
+    reporter = next((p for p in sequence if p.part_type == PartType.REPORTER_GENE), None)
     basal_rate = PROMOTER_STRENGTH[promoter.part_type]
     
-    has_operator = any(p.part_type == PartType.OPERATOR for p in sequence)
-    has_repressor = any(p.part_type == PartType.REPRESSOR_GENE for p in sequence)
+    transcription_rate = basal_rate
     
-    # THE SWITCH: If inducer is present, it releases the repressor (conformational change)
-    # If no inducer, and repressor/operator exist, we block transcription.
-    if has_operator and has_repressor and not inducer:
-        transcription_rate = LEAKY_EXPRESSION_FLOOR
-        result.mechanism_trace.append("Repressor bound to Operator: Steric Hindrance active.")
-    else:
-        transcription_rate = basal_rate
-        if inducer and has_repressor:
-            result.mechanism_trace.append("Inducer present: Conformational change released repressor.")
+    operator_part = next((p for p in sequence if p.part_type == PartType.OPERATOR), None)
+    has_repressor = any(p.part_type == PartType.REPRESSOR_GENE for p in sequence)
+
+    if operator_part is not None and has_repressor:
+        promoter_slot  = promoter.slot_index
+        reporter_slot  = reporter.slot_index
+        operator_slot  = operator_part.slot_index
+        if promoter_slot < operator_slot < reporter_slot:
+            if not operator_part.inducer_present:
+                # Repressor IS bound — steric hindrance
+                transcription_rate = LEAKY_EXPRESSION_FLOOR
+                result.mechanism_trace.append("Repressor bound to Operator: Steric Hindrance active. Gene OFF.")
+            else:
+                # Inducer present → conformational change → repressor detaches
+                transcription_rate = basal_rate
+                result.mechanism_trace.append("Inducer present: conformational change released repressor. Gene ON.")
+
+    # CAP/cAMP Activation
+    cap_part = next((p for p in sequence if p.part_type == PartType.CAP_BINDING_SITE), None)
+    if cap_part is not None:
+        if cap_part.cAMP_present:
+            transcription_rate = min(1.0, transcription_rate + 0.30)
+            result.mechanism_trace.append(f"CAP/cAMP active: RNA Pol recruited. Transcription boosted +0.30 → {transcription_rate:.2f}")
+        else:
+            result.warnings.append("CAP Binding Site present but cAMP absent. No activation boost.")
+
+    # Enhancer boost (DNA looping)
+    if any(p.part_type == PartType.ENHANCER for p in sequence):
+        transcription_rate = min(1.0, transcription_rate + 0.25)
+        result.mechanism_trace.append(f"Enhancer: DNA looping brings enhancer to Promoter proximity. Boost +0.25 → {transcription_rate:.2f}")
 
     # 4. Fluorescence & Reward
     fluorescence = round(transcription_rate ** (1 / 1.2), 4)
     result.fluorescence_output = fluorescence
+    result.is_expressing = fluorescence > 0.05
     
     accuracy = 1.0 - abs(fluorescence - target_fluorescence)
     complexity = max(0.0, 1.0 - (len(sequence) - target_part_count)/target_part_count)
