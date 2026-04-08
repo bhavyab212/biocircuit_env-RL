@@ -5,11 +5,15 @@ from dense_rewards import check_dense_rewards
 
 class BioCircuitEnv:
     def __init__(self):
-        # Load all 15 tasks from your tasks.json
         tasks_path = os.path.join(os.path.dirname(__file__), "tasks.json")
         with open(tasks_path, "r") as f:
             self.tasks = json.load(f)["tasks"]
         self.current_task_idx = 0
+        self.task = self.tasks[0]
+        self.circuit = []
+        self.steps = 0
+        self.done = False
+        self.last_result = None
 
     def reset(self, task_index=0):
         self.current_task_idx = task_index
