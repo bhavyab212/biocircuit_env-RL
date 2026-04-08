@@ -151,12 +151,12 @@ Mechanism Explanation:
 
 def _build_rubric_prompt(task_id: int, task_name: str = "") -> str:
     task_key_checks = {
-        4:  "LEVEL 4: Circuit uses CAP Binding Site for cAMP-mediated activation. This is CORRECT — do not penalize for missing Operator.",
-        6:  "LEVEL 6: Circuit uses Enhancer for DNA looping activation. This is CORRECT — Operator is NOT required.",
-        11: "LEVEL 11: Circuit uses CAP Binding Site for combinatorial activation. Operator is NOT required.",
-        12: "LEVEL 12: Must mention cAMP recruitment of RNA Pol by CAP.",
-        13: "LEVEL 13: Circuit uses Enhancer. Must mention DNA looping. Operator is NOT required.",
-        15: "LEVEL 15: Must mention phosphorylation cascade or 2nd messengers.",
+        4:  "LEVEL 4 Signal Boosting: CAP Binding Site + cAMP recruits RNA Pol. Do NOT penalize for missing Operator — this task uses activation not repression.",
+        6:  "LEVEL 6 Distant Control: Enhancer uses DNA looping to contact the promoter. Do NOT penalize for missing Operator or Repressor.",
+        11: "LEVEL 11 Combinatorial AND Gate: CAP + cAMP recruits RNA Pol. Do NOT penalize for missing Operator.",
+        12: "LEVEL 12 Metabolic Switching: Must mention cAMP recruitment of RNA Pol by CAP AND LacI repressor removal by inducer.",
+        13: "LEVEL 13 Enhancer Loop: Must mention DNA looping mechanism. Do NOT penalize for missing Operator or Repressor.",
+        15: "LEVEL 15 Relay Amplification: Must mention phosphorylation cascade or second messengers.",
     }
     active_key_check = task_key_checks.get(task_id, "Standard regulatory evaluation.")
 

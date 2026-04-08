@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SynBio-RL Environment — Live Training Dashboard</title>
+<meta name="description" content="Real-time reinforcement learning environment dashboard for synthetic biology circuit design. 15-task genetic circuit challenge.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* ===== DARK THEME (default) ===== */
+:root{
+  --bg-0:#0a0b10;--bg-1:#0f1117;--bg-2:#161822;--bg-3:#1c1f2e;--bg-4:#252840;
+  --glass:rgba(255,255,255,.04);--glass-border:rgba(255,255,255,.07);
+  --glass-hover:rgba(255,255,255,.08);
+  --text-1:#f0f0f5;--text-2:#a0a3b5;--text-3:#6b6e82;
+  --accent:#8b5cf6;--accent-glow:rgba(139,92,246,.3);
+  --coral:#ff6b6b;--teal:#4ecdc4;--orange:#ffb347;--green:#10b981;
+  --yellow:#fbbf24;--pink:#f472b6;--blue:#60a5fa;--red:#ef4444;
+  --border:rgba(255,255,255,.08);
+  --radius:12px;--radius-lg:16px;--radius-xl:20px;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  --transition:all .25s cubic-bezier(.4,0,.2,1);
+  --highlight-bg:rgba(139,92,246,.07);--highlight-border:rgba(139,92,246,.45);
+  --highlight-glow:0 0 20px rgba(139,92,246,.15);
+  --dna-bg:rgba(78,205,196,.08);--dna-border:rgba(78,205,196,.5);
+  --dna-glow: 0 0 30px rgba(78,205,196,.2);
+  --mask-bg:rgba(251,191,36,.06);--mask-border:rgba(251,191,36,.4);
+  --chart-grid:rgba(255,255,255,.04);
+  --header-bg:rgba(10,11,16,.95);
+  --col-bg:var(--bg-0);
+}
+/* ===== LIGHT THEME ===== */
+body.light{
+  --bg-0:#f4f6fc;--bg-1:#ebedf5;--bg-2:#ffffff;--bg-3:#f4f6fc;--bg-4:#e0e4f0;
+  --glass:rgba(255,255,255,.9);--glass-border:rgba(100,110,200,.25);
+  --glass-hover:#fff;
+  --text-1:#0f172a;--text-2:#334155;--text-3:#64748b;
+  --accent:#6366f1;--accent-glow:rgba(99,102,241,.15);
+  --green:#10b981;--red:#ef4444;--yellow:#f59e0b;--orange:#f59e0b;
+  --border:rgba(100,110,200,.15);
+  --highlight-bg:rgba(99,102,241,.05);--highlight-border:rgba(99,102,241,.4);
+  --highlight-glow:0 4px 20px rgba(99,102,241,.12);
+  --dna-bg:rgba(20,184,166,.08);--dna-border:rgba(20,184,166,.5);
+  --dna-glow: 0 4px 25px rgba(20,184,166,.15);
+  --mask-bg:rgba(245,158,11,.05);--mask-border:rgba(245,158,11,.4);
+  --chart-grid:rgba(0,0,0,.08);
+  --header-bg:rgba(244,246,252,.95);
+  --col-bg:var(--bg-0);
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--bg-0);color:var(--text-1);transition:background .3s,color .3s}
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg-4);border-radius:3px}
+/* GLASS CARD */
+.glass{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);transition:var(--transition)}
+.glass:hover{background:var(--glass-hover)}
+.glass-solid{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);transition:var(--transition)}
+/* HIGHLIGHTED CARDS — center column focal elements */
+.card-highlight{background:var(--highlight-bg);border:1px solid var(--highlight-border);border-radius:var(--radius-lg);box-shadow:var(--highlight-glow);backdrop-filter:blur(16px);transition:var(--transition)}
+.card-dna{background:var(--dna-bg);border:1.5px solid var(--dna-border);border-radius:var(--radius-lg);box-shadow:var(--dna-glow);backdrop-filter:blur(16px);transition:var(--transition)}
+.card-mask{background:var(--mask-bg);border:1px solid var(--mask-border);border-radius:var(--radius-lg);transition:var(--transition)}
+/* LAYOUT */
+#app{display:grid;grid-template-rows:56px 1fr;height:100vh;overflow:hidden}
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--header-bg);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);z-index:50;transition:background .3s}
+header h1{font-size:1rem;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+header h1 span{background:linear-gradient(135deg,var(--accent),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header-center{display:flex;align-items:center;gap:16px}
+.header-right{display:flex;align-items:center;gap:10px}
+/* STATUS PILL */
+.status-pill{padding:5px 14px;border-radius:20px;font-size:.72rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.status-pill .dot{width:7px;height:7px;border-radius:50%;animation:blink 1.5s infinite}
+.status-pill.ready{background:rgba(16,185,129,.12);color:var(--green)}.status-pill.ready .dot{background:var(--green)}
+.status-pill.running{background:rgba(251,191,36,.12);color:var(--yellow)}.status-pill.running .dot{background:var(--yellow)}
+.status-pill.complete{background:rgba(139,92,246,.12);color:var(--accent)}.status-pill.complete .dot{background:var(--accent)}
+/* METRIC BADGE */
+.metric-row{display:flex;gap:6px;align-items:center}
+.metric-badge{background:var(--bg-3);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:.7rem;font-weight:600;color:var(--text-2);font-family:var(--mono);display:flex;align-items:center;gap:5px}
+.metric-badge .val{color:var(--text-1)}
+/* BUTTONS */
+.btn{padding:8px 20px;border:none;border-radius:10px;font-family:var(--font);font-weight:700;font-size:.8rem;cursor:pointer;transition:var(--transition);display:flex;align-items:center;gap:6px}
+.btn-accent{background:linear-gradient(135deg,var(--accent),#a78bfa);color:#fff;box-shadow:0 4px 15px var(--accent-glow)}
+.btn-accent:hover{transform:translateY(-1px);box-shadow:0 6px 25px var(--accent-glow)}
+.btn-accent.running{animation:btn-pulse 1.5s infinite}
+.btn-ghost{background:var(--bg-3);color:var(--text-2);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text-1);background:var(--bg-4)}
+/* MAIN GRID */
+#main{display:grid;grid-template-columns:260px 1fr 280px;gap:1px;background:var(--border);overflow:hidden}
+@media(max-width:1200px){#main{grid-template-columns:1fr;overflow-y:auto}}
+.col{background:var(--col-bg);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;transition:background .3s}
+/* SECTION HEADERS */
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sec-title{font-size:.7rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:6px}
+.sec-title-bright{font-size:.72rem;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:6px}
+/* TASK LIST */
+.task-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius);cursor:pointer;transition:var(--transition);border:1px solid transparent}
+.task-item:hover{background:var(--glass);border-color:var(--glass-border)}
+.task-item.active{background:rgba(139,92,246,.08);border-color:rgba(139,92,246,.2)}
+.task-item.glow{box-shadow:0 0 20px rgba(251,191,36,.15);border-color:rgba(251,191,36,.25)}
+.task-num{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;background:var(--bg-3);color:var(--text-3);flex-shrink:0;font-family:var(--mono)}
+.task-name{flex:1;font-size:.78rem;font-weight:500;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-item.active .task-name{color:var(--text-1)}
+.task-icon{font-size:.85rem}
+.score-chip{font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:6px;font-family:var(--mono)}
+.score-chip.hi{background:rgba(16,185,129,.15);color:var(--green)}
+.score-chip.mid{background:rgba(255,179,71,.15);color:var(--orange)}
+.score-chip.lo{background:rgba(239,68,68,.15);color:var(--red)}
+.score-chip.na{background:var(--bg-3);color:var(--text-3)}
+/* PROGRESS BAR */
+.progress-track{height:8px;background:var(--bg-3);border-radius:4px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.2)}
+.progress-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--teal));transition:width .4s ease;box-shadow:0 0 8px rgba(139,92,246,.5)}
+/* DNA VISUALIZER */
+#dna-strip{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:48px;padding:14px 18px}
+.dna-part{padding:6px 12px;border-radius:8px;font-size:.68rem;font-weight:800;color:#fff;font-family:var(--mono);animation:pop-in .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25);letter-spacing:.02em}
+.dna-arrow{color:var(--accent);font-size:.85rem;font-weight:900;text-shadow:0 0 8px var(--accent-glow)}
+.p-strong_promoter{background:linear-gradient(135deg,#ff6b6b,#ee5a5a)}
+.p-medium_promoter{background:linear-gradient(135deg,#ffb347,#f5a030)}
+.p-weak_promoter{background:linear-gradient(135deg,#fbbf24,#e5a820);color:#1a1a2e}
+.p-operator{background:linear-gradient(135deg,#9b89f5,#8b5cf6)}
+.p-reporter_gene{background:linear-gradient(135deg,#4ecdc4,#38b2ac)}
+.p-structural_gene{background:linear-gradient(135deg,#60a5fa,#3b82f6)}
+.p-repressor_gene{background:linear-gradient(135deg,#f472b6,#ec4899)}
+.p-cap_binding_site{background:linear-gradient(135deg,#10b981,#059669)}
+.p-enhancer{background:linear-gradient(135deg,#c084fc,#a855f7)}
+.p-terminator{background:linear-gradient(135deg,#6b7280,#4b5563)}
+/* CHART */
+.chart-wrap{position:relative;height:160px}
+.chart-wrap canvas{max-height:160px}
+/* JUDGE */
+.judge-grade{width:90px;height:90px;position:relative;margin:0 auto}
+.judge-grade svg{width:90px;height:90px;transform:rotate(-90deg)}
+.judge-grade .bg-ring{fill:none;stroke:var(--bg-3);stroke-width:6}
+.judge-grade .fg-ring{fill:none;stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .8s ease,stroke .4s}
+.judge-grade .grade-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;font-family:var(--mono)}
+.critique-text{font-size:.75rem;color:var(--text-2);line-height:1.5;max-height:70px;overflow-y:auto}
+.badge-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.err-badge{padding:2px 8px;border-radius:6px;font-size:.6rem;font-weight:700;color:#fff}
+.err-badge.red{background:rgba(239,68,68,.25);color:var(--red)}
+.err-badge.orange{background:rgba(255,179,71,.2);color:var(--orange)}
+/* SETTINGS */
+.setting-row{margin-bottom:12px}
+.setting-row label{display:block;font-size:.7rem;font-weight:600;color:var(--text-3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.setting-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-3);color:var(--text-1);font-family:var(--font);font-size:.82rem;outline:none;transition:var(--transition)}
+body.light .setting-input{background:var(--bg-2);border-color:var(--border)}
+.setting-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+select.setting-input{appearance:none;cursor:pointer}
+input[type=range].setting-input{padding:4px;cursor:pointer;accent-color:var(--accent)}
+/* TOGGLE */
+.toggle-row{display:flex;align-items:center;justify-content:space-between}
+.toggle{width:40px;height:22px;border-radius:11px;background:var(--bg-4);border:1px solid var(--border);cursor:pointer;position:relative;transition:var(--transition)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text-3);transition:var(--transition)}
+.toggle.on{background:var(--accent);border-color:var(--accent)}.toggle.on::after{transform:translateX(18px);background:#fff}
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{padding:12px;border-radius:var(--radius);background:var(--bg-2);border:1px solid var(--border);text-align:center;transition:background .3s,border .3s}
+body.light .stat-card{background:#fff;box-shadow:0 2px 8px rgba(100,110,180,.1)}
+.stat-val{font-size:1.15rem;font-weight:900;font-family:var(--mono);color:var(--text-1)}
+.stat-label{font-size:.62rem;font-weight:600;color:var(--text-3);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+/* CUMULATIVE REWARD DISPLAY */
+.reward-display{display:flex;align-items:baseline;gap:6px;padding:10px 0}
+.reward-display .big{font-size:1.8rem;font-weight:900;font-family:var(--mono)}
+.reward-display .label{font-size:.72rem;color:var(--text-3);font-weight:600}
+.reward-pos{color:var(--green)}.reward-neg{color:var(--red)}.reward-zero{color:var(--text-3)}
+/* ACTION MASK */
+.mask-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.mask-cell{padding:4px 2px;border-radius:6px;font-size:.55rem;font-weight:700;text-align:center;font-family:var(--mono);border:1px solid var(--border);transition:var(--transition)}
+.mask-cell.on{background:rgba(16,185,129,.12);color:var(--green);border-color:rgba(16,185,129,.2)}
+.mask-cell.off{background:rgba(239,68,68,.08);color:var(--text-3);border-color:transparent;opacity:.5}
+/* EPISODE LOG */
+.log-entry{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.72rem;align-items:flex-start}
+.log-step{font-family:var(--mono);font-weight:700;color:var(--text-3);min-width:28px;flex-shrink:0}
+.log-msg{color:var(--text-2);line-height:1.3;flex:1}
+.log-reward{font-family:var(--mono);font-weight:700;min-width:50px;text-align:right;flex-shrink:0}
+/* TOAST */
+.toast-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);z-index:999}
+.toast-overlay.show{display:flex}
+.toast-box{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl);padding:32px;text-align:center;max-width:380px;box-shadow:0 25px 50px rgba(0,0,0,.5)}
+.toast-box .emoji{font-size:2.5rem;margin-bottom:12px}
+.toast-box p{font-size:.9rem;color:var(--text-2);margin-bottom:16px}
+/* WARNING */
+.float-warn{position:fixed;bottom:20px;right:20px;padding:10px 18px;background:var(--bg-2);border:1px solid rgba(251,191,36,.3);border-radius:12px;font-size:.78rem;font-weight:600;color:var(--yellow);display:none;z-index:100;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.float-warn.show{display:block}
+/* AI PANEL */
+#ai-panel{display:none}
+#ai-panel.show{display:block}
+.skel{height:12px;border-radius:6px;margin-bottom:8px;background:linear-gradient(90deg,var(--bg-3) 25%,var(--bg-4) 50%,var(--bg-3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+.skel.w8{width:80%}.skel.w6{width:60%}.skel.w4{width:40%}
+.ai-text h4{font-size:.82rem;font-weight:700;color:var(--accent);margin:12px 0 4px}
+.ai-text p,.ai-text li{font-size:.78rem;color:var(--text-2);line-height:1.5}
+/* LIGHT MODE overrides for glass */
+body.light .glass{background:rgba(255,255,255,.75);border-color:rgba(100,110,180,.18);box-shadow:0 2px 12px rgba(100,110,180,.1)}
+body.light .glass:hover{background:rgba(255,255,255,.9)}
+body.light .card-highlight{background:rgba(124,58,237,.05);border-color:rgba(124,58,237,.35);box-shadow:0 0 0 1px rgba(124,58,237,.25),0 4px 20px rgba(124,58,237,.08)}
+body.light .card-dna{background:rgba(20,184,166,.05);border-color:rgba(20,184,166,.4);box-shadow:0 0 0 1px rgba(20,184,166,.25),0 4px 20px rgba(20,184,166,.06)}
+body.light .card-mask{background:rgba(217,119,6,.04);border-color:rgba(217,119,6,.3)}
+body.light #main{background:rgba(100,110,180,.12)}
+body.light .progress-track{background:rgba(100,110,180,.15)}
+body.light .mask-cell.off{opacity:.45}
+body.light .task-num{background:rgba(100,110,180,.12);color:var(--text-3)}
+body.light .task-item:hover{background:rgba(100,110,180,.08)}
+body.light .task-item.active{background:rgba(124,58,237,.08);border-color:rgba(124,58,237,.25)}
+body.light .metric-badge{background:#fff;border-color:rgba(100,110,180,.2);box-shadow:0 1px 4px rgba(100,110,180,.1)}
+body.light .score-chip.na{background:rgba(100,110,180,.12)}
+body.light .judge-grade .bg-ring{stroke:rgba(100,110,180,.2)}
+/* THEME TOGGLE BTN */
+#theme-btn{font-size:1.1rem;width:36px;height:36px;padding:0;border-radius:10px;display:flex;align-items:center;justify-content:center}
+/* ANIMATIONS */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes btn-pulse{0%,100%{box-shadow:0 4px 15px var(--accent-glow)}50%{box-shadow:0 4px 30px rgba(139,92,246,.5)}}
+@keyframes pop-in{0%{transform:scale(.7) translateX(15px);opacity:0}100%{transform:scale(1) translateX(0);opacity:1}}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes fade-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.value-update{animation:value-pulse 0.4s ease-out}
+@keyframes value-pulse{0%{transform:scale(1)}50%{transform:scale(1.15);color:var(--accent)}100%{transform:scale(1)}}
+/* RESPONSIVE FONT SCALING */
+@media(max-width:1400px){ html{font-size:14px} }
+@keyframes dna-glow-pulse{0%,100%{box-shadow:var(--dna-glow)}50%{box-shadow:0 0 0 1px rgba(78,205,196,.5),0 6px 30px rgba(78,205,196,.2)}}
+/* RESPONSIVE */
+@media(max-width:1200px){
+  #app{grid-template-rows:56px auto}
+  #main{grid-template-columns:1fr;overflow-y:auto}
+  html,body{overflow:auto}
+}
+.pad{padding:14px}
+.gap-sm{gap:8px}
+</style>
+</head>
+<body>
+<div id="app">
+<!-- HEADER -->
+<header>
+  <h1>🧬 <span>SynBio-RL</span> Environment</h1>
+  <div class="header-center">
+    <div id="status-pill" class="status-pill ready"><span class="dot"></span>READY</div>
+    <div class="metric-row">
+      <div class="metric-badge">EP <span class="val" id="hdr-ep">0/15</span></div>
+      <div class="metric-badge">STEP <span class="val" id="hdr-step">0/10</span></div>
+      <div class="metric-badge">Σ <span class="val" id="hdr-cum">0.00</span></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-ghost" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+    <button class="btn btn-ghost" onclick="toggleSettings()" title="Settings">⚙️</button>
+    <button id="run-btn" class="btn btn-accent" onclick="runAll()">▶ Run 15 Episodes</button>
+  </div>
+</header>
+
+<!-- TOAST -->
+<div id="toast-overlay" class="toast-overlay">
+  <div class="toast-box"><div class="emoji">🔑</div><p id="toast-msg">Enter Groq API Key in Settings</p>
+  <button class="btn btn-accent" onclick="hideToast()">OK</button></div>
+</div>
+<div id="float-warn" class="float-warn"></div>
+
+<!-- MAIN -->
+<div id="main">
+<!-- COL 1: EPISODES -->
+<div class="col" id="col-left">
+  <div class="sec-head"><div class="sec-title">📋 Episodes</div></div>
+  <div id="task-list"></div>
+  <!-- EPISODE LOG -->
+  <div class="glass pad" style="margin-top:8px">
+    <div class="sec-title" style="margin-bottom:8px">📝 Step Log</div>
+    <div id="step-log" style="max-height:180px;overflow-y:auto">
+      <div style="font-size:.72rem;color:var(--text-3)">No steps yet</div>
+    </div>
+  </div>
+</div>
+
+<!-- COL 2: LIVE VIEW -->
+<div class="col" id="col-center">
+  <!-- Active Episode — highlighted card -->
+  <div class="card-highlight pad">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:.65rem;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">⚡ Active Episode</div>
+        <h2 id="active-name" style="font-size:1.15rem;font-weight:900;margin:0 0 4px;color:var(--text-1)">Waiting to start...</h2>
+        <div id="active-hint" style="font-size:.8rem;color:var(--text-2);font-style:italic"></div>
+      </div>
+      <div class="reward-display">
+        <span class="big reward-zero" id="live-reward">+0.00</span>
+        <span class="label">Σ R</span>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.68rem;font-weight:700;color:var(--text-2)">Step Progress</span>
+        <span style="font-size:.7rem;font-weight:800;font-family:var(--mono);color:var(--accent)" id="step-label">0 / 10</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- DNA Visualizer — teal-highlighted card -->
+  <div class="card-dna">
+    <div class="pad" style="padding-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="sec-title-bright">🧬 DNA Sequence Assembly</div>
+        <span id="dna-status" style="font-size:.62rem;font-weight:700;color:var(--teal);font-family:var(--mono)">5′ → 3′</span>
+      </div>
+    </div>
+    <div id="dna-strip"><span style="font-size:.78rem;color:var(--text-3);padding:0 4px;font-weight:500">Wait for agent to place parts...</span></div>
+    <div style="padding:6px 18px 12px;font-size:.65rem;color:var(--text-3);opacity:0.8">Real-time DNA sequence construction grid</div>
+  </div>
+
+  <!-- Action Mask — amber-highlighted card -->
+  <div class="card-mask pad">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="sec-title-bright">🎯 Action Mask</div>
+      <span style="font-size:.62rem;color:var(--text-3);font-weight:500">Green = valid  ·  Red = blocked</span>
+    </div>
+    <div class="mask-grid" id="action-mask"></div>
+  </div>
+
+  <!-- Charts Row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="glass pad">
+      <div class="sec-title-bright" style="margin-bottom:10px">📊 Step Rewards</div>
+      <div class="chart-wrap"><canvas id="rewardChart"></canvas></div>
+    </div>
+    <div class="glass pad">
+      <div class="sec-title-bright" style="margin-bottom:10px">📈 Score Trend (R×G)</div>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Cumulative Reward Chart -->
+  <div class="glass pad">
+    <div class="sec-title-bright" style="margin-bottom:10px">⚡ Cumulative Reward per Episode</div>
+    <div class="chart-wrap"><canvas id="cumChart"></canvas></div>
+  </div>
+
+  <!-- AI Panel -->
+  <div class="card-highlight pad" id="ai-panel">
+    <div class="sec-title-bright" style="margin-bottom:8px">🧠 AI Behavior Analysis</div>
+    <div id="ai-content"><div class="skel w8"></div><div class="skel w6"></div><div class="skel w8"></div><div class="skel w4"></div></div>
+  </div>
+</div>
+
+<!-- COL 3: JUDGE + CONFIG -->
+<div class="col" id="col-right">
+  <!-- Judge -->
+  <div class="glass pad" id="judge-card">
+    <div class="sec-title">🎓 Science Judge</div>
+    <div style="text-align:center;font-size:2.2rem;margin:8px 0">🤖</div>
+    <div class="judge-grade" id="grade-wrap">
+      <svg viewBox="0 0 100 100"><circle class="bg-ring" cx="50" cy="50" r="42"/><circle class="fg-ring" id="grade-ring" cx="50" cy="50" r="42" stroke-dasharray="263.9" stroke-dashoffset="263.9" stroke="var(--green)"/></svg>
+      <div class="grade-val" id="grade-val">—</div>
+    </div>
+    <div style="text-align:center;font-size:.65rem;color:var(--text-3);margin-top:4px">Science Grade (G)</div>
+    <div class="critique-text" id="critique-text" style="margin-top:8px">Awaiting evaluation…</div>
+    <div class="badge-row" id="lethal-list"></div>
+    <div class="badge-row" id="warn-list"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="glass pad">
+    <div class="sec-title" style="margin-bottom:8px">📊 Training Stats</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="s-total">0.00</div><div class="stat-label">Total Score</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-avg">0.00</div><div class="stat-label">Average</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-pass">0/15</div><div class="stat-label">Pass Rate</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-best">—</div><div class="stat-label">Best Episode</div></div>
+    </div>
+  </div>
+
+  <!-- Settings (collapsible) -->
+  <div class="glass pad" id="settings-panel">
+    <div class="sec-title" style="margin-bottom:10px">⚙️ Configuration</div>
+    <div class="setting-row"><label>Groq API Key</label><input type="password" class="setting-input" id="api-key" placeholder="gsk_..."></div>
+    <div class="setting-row"><label>Model</label><select class="setting-input" id="model-sel"><option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option><option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option></select></div>
+    <div class="setting-row"><label>Step Delay: <span id="delay-v">1200</span>ms</label><input type="range" class="setting-input" id="delay-sl" min="0" max="3000" value="1200" oninput="document.getElementById('delay-v').textContent=this.value"></div>
+    <div class="setting-row"><div class="toggle-row"><label style="margin:0">Mock Mode</label><div class="toggle" id="mock-tog" onclick="toggleMock()"></div></div></div>
+    <button class="btn btn-accent" style="width:100%;justify-content:center;margin-top:6px" onclick="saveSettings()">💾 Save</button>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+// ===== TASKS =====
+const TASKS=[
+{id:"TASK_01",name:"Basic Initiation",target:1,parts:["strong_promoter","reporter_gene","terminator"],hint:"Promoter must be upstream (5′) of the gene."},
+{id:"TASK_02",name:"The Biological Brake",target:0,parts:["medium_promoter","operator","repressor_gene","reporter_gene","terminator"],hint:"Repressors cause steric hindrance at the operator."},
+{id:"TASK_03",name:"The Inducible Switch",target:1,parts:["medium_promoter","operator","repressor_gene","reporter_gene","terminator"],hint:"Inducers cause a conformational change in the repressor."},
+{id:"TASK_04",name:"Signal Boosting",target:.7,parts:["weak_promoter","cap_binding_site","reporter_gene","terminator"],hint:"CAP + cAMP recruits RNA Polymerase more efficiently."},
+{id:"TASK_05",name:"Comparing Strengths",target:1,parts:["strong_promoter","weak_promoter","reporter_gene","terminator"],hint:"Use reporter assays to quantify promoter Vmax."},
+{id:"TASK_06",name:"Distant Control",target:.75,parts:["medium_promoter","enhancer","reporter_gene","terminator"],hint:"Enhancers use DNA looping to contact the promoter."},
+{id:"TASK_07",name:"The Signal Relay",target:1,parts:["weak_promoter","structural_gene","reporter_gene","terminator"],hint:"Exterior ligands trigger phosphorylation cascades."},
+{id:"TASK_08",name:"The Silencer",target:0,parts:["strong_promoter","operator","repressor_gene","structural_gene","terminator"],hint:"Silencers prevent RNA Pol from binding to the promoter."},
+{id:"TASK_09",name:"Drug Sensitivity",target:.5,parts:["medium_promoter","operator","reporter_gene","terminator"],hint:"Titrate concentrations to find the minimum effective dose."},
+{id:"TASK_10",name:"Feedback Loop",target:.5,parts:["medium_promoter","repressor_gene","reporter_gene","terminator"],hint:"Negative feedback stabilizes the signal."},
+{id:"TASK_11",name:"AND Gate",target:1,parts:["weak_promoter","cap_binding_site","reporter_gene","terminator"],hint:"Multiple factors interact with the mediator complex."},
+{id:"TASK_12",name:"Metabolic Switching",target:1,parts:["weak_promoter","cap_binding_site","operator","repressor_gene","reporter_gene","terminator"],hint:"CAP-Lac dual logic handles glucose starvation."},
+{id:"TASK_13",name:"Enhancer Loop",target:.75,parts:["medium_promoter","enhancer","reporter_gene","terminator"],hint:"Place the enhancer distally to enable DNA looping."},
+{id:"TASK_14",name:"Intracellular Sensor",target:1,parts:["medium_promoter","structural_gene","reporter_gene","terminator"],hint:"Non-polar molecules pass directly through the membrane."},
+{id:"TASK_15",name:"Relay Amplification",target:1,parts:["weak_promoter","cap_binding_site","enhancer","operator","repressor_gene","reporter_gene","terminator"],hint:"Use a multi-step phosphorylation cascade to amplify signals."}
+];
+
+const PART_NAMES=["strong_promoter","medium_promoter","weak_promoter","operator","reporter_gene","structural_gene","repressor_gene","cap_binding_site","enhancer","terminator"];
+const PART_SHORT={strong_promoter:"Str.P",medium_promoter:"Med.P",weak_promoter:"Wk.P",operator:"Op",reporter_gene:"Rep.G",structural_gene:"St.G",repressor_gene:"Rpr.G",cap_binding_site:"CAP",enhancer:"Enh",terminator:"Term"};
+
+// ===== STATE =====
+let S={running:false,sel:0,results:Array(15).fill(null),apiKey:'',model:'llama-3.3-70b-versatile',delay:1200,mock:false};
+
+// ===== INIT =====
+function init(){
+  S.apiKey=localStorage.getItem('groq_key')||'';S.model=localStorage.getItem('groq_model')||'llama-3.3-70b-versatile';
+  S.delay=parseInt(localStorage.getItem('step_delay')||'1200');S.mock=localStorage.getItem('mock')==='true';
+  document.getElementById('api-key').value=S.apiKey;document.getElementById('model-sel').value=S.model;
+  document.getElementById('delay-sl').value=S.delay;document.getElementById('delay-v').textContent=S.delay;
+  if(S.mock)document.getElementById('mock-tog').classList.add('on');
+  buildTaskList();initCharts();initMask();selectTask(0);
+}
+
+function buildTaskList(){
+  const el=document.getElementById('task-list');el.innerHTML='';
+  TASKS.forEach((t,i)=>{const d=document.createElement('div');d.className='task-item'+(i===S.sel?' active':'');d.id='tr-'+i;d.onclick=()=>selectTask(i);
+  d.innerHTML=`<div class="task-num">${i+1}</div><div class="task-name">${t.name}</div><span class="task-icon" id="ti-${i}">⏳</span><span class="score-chip na" id="ts-${i}">—</span>`;
+  el.appendChild(d)});
+}
+
+function selectTask(i){
+  document.querySelectorAll('.task-item').forEach(r=>r.classList.remove('active'));
+  const row=document.getElementById('tr-'+i);if(row)row.classList.add('active');S.sel=i;
+  const t=TASKS[i];document.getElementById('active-name').textContent=`Ep ${i+1}: ${t.name}`;
+  document.getElementById('active-hint').textContent=t.hint;
+  const r=S.results[i];
+  if(r){showDNA(r.circuit);updateRewardChart(r.rewards);updateProg(r.circuit.length);updateJudge(r.verdict);setLiveReward(r.cumReward)}
+  else{document.getElementById('dna-strip').innerHTML='<span style="font-size:.72rem;color:var(--text-3)">5′ — no parts placed — 3′</span>';updateRewardChart([]);updateProg(0);resetJudge();setLiveReward(0)}
+}
+
+function initMask(){const el=document.getElementById('action-mask');el.innerHTML='';PART_NAMES.forEach(p=>{const c=document.createElement('div');c.className='mask-cell off';c.id='mask-'+p;c.textContent=PART_SHORT[p];el.appendChild(c)})}
+function updateMask(mask){PART_NAMES.forEach((p,i)=>{const c=document.getElementById('mask-'+p);if(c){c.className='mask-cell '+(mask[i]?'on':'off')}})}
+
+// ===== CHARTS =====
+let rChart,tChart,cChart;
+const chartFont={family:'Inter',size:10};
+const gridColor='rgba(255,255,255,.04)';
+function initCharts(){
+  Chart.defaults.color='#6b6e82';
+  rChart=new Chart(document.getElementById('rewardChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{label:'R',data:[],backgroundColor:[]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont}}},animation:{duration:400}}});
+  tChart=new Chart(document.getElementById('trendChart').getContext('2d'),{type:'line',data:{labels:TASKS.map((_,i)=>`E${i+1}`),datasets:[{label:'Score',data:Array(15).fill(null),borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,.1)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#8b5cf6',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:10,grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont}}},animation:{duration:600}}});
+  cChart=new Chart(document.getElementById('cumChart').getContext('2d'),{type:'bar',data:{labels:TASKS.map((_,i)=>`E${i+1}`),datasets:[{label:'Cumulative R',data:Array(15).fill(null),backgroundColor:Array(15).fill('rgba(78,205,196,.3)'),borderColor:Array(15).fill('#4ecdc4'),borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont}}},animation:{duration:600}}});
+}
+function updateRewardChart(rw){rChart.data.labels=rw.map((_,i)=>`S${i+1}`);rChart.data.datasets[0].data=rw;rChart.data.datasets[0].backgroundColor=rw.map(r=>r>=0?'rgba(16,185,129,.5)':'rgba(239,68,68,.5)');rChart.update()}
+function addRewardBar(si,r){rChart.data.labels.push(`S${si+1}`);rChart.data.datasets[0].data.push(r);rChart.data.datasets[0].backgroundColor.push(r>=0?'rgba(16,185,129,.5)':'rgba(239,68,68,.5)');rChart.update()}
+function updateTrend(){tChart.data.datasets[0].data=S.results.map(r=>r?r.score:null);tChart.update()}
+function updateCum(){cChart.data.datasets[0].data=S.results.map(r=>r?r.cumReward:null);const colors=S.results.map(r=>r?(r.cumReward>=0?'rgba(78,205,196,.4)':'rgba(239,68,68,.4)'):'rgba(78,205,196,.15)');cChart.data.datasets[0].backgroundColor=colors;cChart.update()}
+
+// ===== UI =====
+function showDNA(parts){const el=document.getElementById('dna-strip');el.innerHTML='';if(!parts.length){el.innerHTML='<span style="font-size:.72rem;color:var(--text-3)">5′ — no parts placed — 3′</span>';return}
+parts.forEach((p,i)=>{if(i>0){const a=document.createElement('span');a.className='dna-arrow';a.textContent='→';el.appendChild(a)}
+const d=document.createElement('span');d.className='dna-part p-'+p;d.textContent=p.replace(/_/g,' ');el.appendChild(d)})}
+
+function addDNA(part){const el=document.getElementById('dna-strip');if(el.querySelector('.dna-part')){const a=document.createElement('span');a.className='dna-arrow';a.textContent='→';el.appendChild(a)}else el.innerHTML='';
+const d=document.createElement('span');d.className='dna-part p-'+part;d.textContent=part.replace(/_/g,' ');el.appendChild(d)}
+
+function updateProg(step){const el=document.getElementById('prog-fill');el.style.width=(step/10*100)+'%';document.getElementById('step-label').textContent=step+'/10';document.getElementById('hdr-step').textContent=step+'/10';el.classList.add('value-update');setTimeout(()=>el.classList.remove('value-update'),400)}
+function setLiveReward(v){const el=document.getElementById('live-reward');el.textContent=(v>=0?'+':'')+v.toFixed(2);el.className='big '+(v>0?'reward-pos':v<0?'reward-neg':'reward-zero');el.classList.add('value-update');setTimeout(()=>el.classList.remove('value-update'),400);document.getElementById('hdr-cum').textContent=v.toFixed(2)}
+
+function addLog(step,msg,reward){const el=document.getElementById('step-log');if(step===0)el.innerHTML='';
+const d=document.createElement('div');d.className='log-entry fade-in';
+d.innerHTML=`<span class="log-step">S${step+1}</span><span class="log-msg">${msg}</span><span class="log-reward" style="color:${reward>=0?'var(--green)':'var(--red)'}"> ${reward>=0?'+':''}${reward.toFixed(2)}</span>`;
+el.appendChild(d);el.scrollTop=el.scrollHeight}
+
+function updateJudge(v){if(!v){resetJudge();return}const g=v.science_grade;const circ=2*Math.PI*42;const off=circ*(1-g);
+document.getElementById('grade-ring').style.strokeDashoffset=off;document.getElementById('grade-ring').style.stroke=g>=.8?'var(--green)':g>=.5?'var(--yellow)':'var(--red)';
+document.getElementById('grade-val').textContent=g.toFixed(2);document.getElementById('critique-text').textContent=v.critique||'No critique';
+document.getElementById('lethal-list').innerHTML=(v.lethal_errors||[]).map(e=>`<span class="err-badge red">${e}</span>`).join('');
+document.getElementById('warn-list').innerHTML=(v.warnings||[]).map(w=>`<span class="err-badge orange">${w}</span>`).join('')}
+function resetJudge(){document.getElementById('grade-ring').style.strokeDashoffset=263.9;document.getElementById('grade-val').textContent='—';document.getElementById('critique-text').textContent='Awaiting evaluation…';document.getElementById('lethal-list').innerHTML='';document.getElementById('warn-list').innerHTML=''}
+
+function setStatus(s){const el=document.getElementById('status-pill');el.className='status-pill '+s;el.innerHTML=`<span class="dot"></span>${s==='ready'?'READY':s==='running'?'TRAINING':'COMPLETE'}`}
+
+function updateStats(){const done=S.results.filter(r=>r);const total=done.reduce((s,r)=>s+r.score,0);const avg=done.length?total/done.length:0;const passed=done.filter(r=>r.score>2).length;
+let best=done.length?done.reduce((a,b)=>a.score>b.score?a:b):null;
+document.getElementById('s-total').textContent=total.toFixed(2);document.getElementById('s-avg').textContent=avg.toFixed(2);
+document.getElementById('s-pass').textContent=passed+'/'+done.length;document.getElementById('s-best').textContent=best?`E${TASKS.indexOf(TASKS.find(t=>t.name===best.name))+1}: ${best.score.toFixed(1)}`:'—';document.getElementById('s-best').style.fontSize='.7rem'}
+
+function showToast(m){document.getElementById('toast-msg').textContent=m;document.getElementById('toast-overlay').classList.add('show')}
+function hideToast(){document.getElementById('toast-overlay').classList.remove('show')}
+function showWarn(m){const e=document.getElementById('float-warn');e.textContent=m;e.classList.add('show')}
+function hideWarn(){document.getElementById('float-warn').classList.remove('show')}
+function toggleSettings(){const p=document.getElementById('settings-panel');p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'}
+function toggleMock(){const el=document.getElementById('mock-tog');S.mock=el.classList.toggle('on');localStorage.setItem('mock',S.mock);showToast(`Mock Mode: ${S.mock?'ON':'OFF'}`)}
+function saveSettings(){S.apiKey=document.getElementById('api-key').value.trim();S.model=document.getElementById('model-sel').value;S.delay=parseInt(document.getElementById('delay-sl').value);
+localStorage.setItem('groq_key',S.apiKey);localStorage.setItem('groq_model',S.model);localStorage.setItem('step_delay',S.delay);showToast('Settings saved ✅')}
+
+// ===== THEME TOGGLE =====
+function toggleTheme(){
+  const isLight=document.body.classList.toggle('light');
+  document.getElementById('theme-btn').textContent=isLight?'🌙':'☀️';
+  localStorage.setItem('theme',isLight?'light':'dark');
+  // Update chart grid color
+  const gc=isLight?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)';
+  Chart.defaults.color=isLight?'#6b7280':'#6b6e82';
+  [rChart,tChart,cChart].forEach(c=>{if(!c)return;c.options.scales.y.grid.color=gc;c.options.scales.x.grid.color='transparent';c.update()})}
+// Load saved theme
+(function(){const t=localStorage.getItem('theme');if(t==='light'){document.body.classList.add('light');const b=document.getElementById('theme-btn');if(b)b.textContent='🌙';}})();
+
+// ===== GROQ API =====
+async function callGroq(msgs,mt=600){if(S.mock)return mockResp(msgs);
+const r=await fetchRetry('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.apiKey},body:JSON.stringify({model:S.model,messages:msgs,temperature:0,max_tokens:mt})});
+const d=await r.json();return d.choices[0].message.content}
+
+async function fetchRetry(u,o,n=3){for(let i=0;i<n;i++){try{const r=await fetch(u,o);if(r.status===429){const w=Math.pow(2,i+1);showWarn(`Rate limited — retrying in ${w}s...`);await sl(w*1000);hideWarn();continue}if(!r.ok)throw new Error('API '+r.status);return r}catch(e){if(i===n-1)throw e;await sl(2000)}}}
+function sl(ms){return new Promise(r=>setTimeout(r,ms))}
+
+function mockResp(msgs){const c=msgs[msgs.length-1].content;
+if(c.includes('REMAINING ALLOWED')){const m=c.match(/REMAINING ALLOWED PARTS:\s*\[([^\]]*)\]/);if(m){const ps=m[1].split(',').map(s=>s.trim().replace(/['"]/g,'')).filter(Boolean);return JSON.stringify({action:{type:'place',part:ps[0]||'terminator'},reasoning:'Mock: placing '+ps[0]})}return JSON.stringify({action:{type:'place',part:'terminator'},reasoning:'Mock fallback'})}
+if(c.includes('EVALUATION RUBRIC')){const g=(0.6+Math.random()*.35).toFixed(2);return `Science Grade: ${g}\nMechanism Check: Confirmed\nCritique: Mock evaluation — circuit structure is reasonable for this task.\nLethal Errors: None`}
+return '**Overall Pattern:** Agent shows strong promoter preference and completes circuits efficiently.\n\n**Best Task:** Episode 1 — Basic structure was correctly assembled with proper 5→3 ordering.\n\n**Worst Task:** Episode 8 — Silencer logic proved challenging for the agent.\n\n**Biological Accuracy:** Improving trend across episodes with better regulatory element placement.\n\n**Recommendations:** Fine-tune repressor and operator placement logic for repression tasks.'}
+
+// ===== AGENT LOOP =====
+function sysMsg(){return "You are a Synthetic Biology Expert designing genetic circuits. You ONLY respond in valid JSON. ABSOLUTE RULE 1: If CURRENT CIRCUIT is empty [], your response MUST place a promoter. ABSOLUTE RULE 2: Only choose parts from REMAINING ALLOWED PARTS. ABSOLUTE RULE 3: Never place a terminator unless a reporter_gene or structural_gene is already in CURRENT CIRCUIT. TASK LOGIC GUIDE: CAP tasks: Promoter→cap_binding_site→reporter_gene→terminator. Enhancer tasks: Promoter→enhancer→reporter_gene→terminator. Repression tasks: Promoter→operator→repressor_gene→reporter_gene→terminator. Basic: Promoter→reporter_gene→terminator."}
+function usrMsg(task,circ,rem,hint){return `TASK: ${task}\nCURRENT CIRCUIT: ${JSON.stringify(circ)}\nREMAINING ALLOWED PARTS: ${JSON.stringify(rem)}\nHINT: ${hint}\n\nYOUR RESPONSE (JSON ONLY):\n{"action":{"type":"place","part":"part_name"},"reasoning":"..."}`}
+function reward(part,circ){if(circ.length===1&&part.includes('promoter'))return 1;if(part==='reporter_gene')return .5;if(part==='terminator')return circ.some(p=>p.includes('gene'))?1.5:-.5;return .2}
+
+function buildMask(circ,taskParts){const mask=Array(10).fill(0);const hasProm=circ.some(p=>p.includes('promoter'));const hasGene=circ.some(p=>p.includes('gene'));const hasTerm=circ.includes('terminator');const hasOp=circ.includes('operator');
+if(hasTerm)return mask;if(!circ.length){PART_NAMES.forEach((p,i)=>{if(p.includes('promoter')&&taskParts.includes(p))mask[i]=1});return mask}
+PART_NAMES.forEach((p,i)=>{if(!taskParts.includes(p))return;if(p.includes('promoter')&&hasProm)return;if(p==='terminator'&&!hasGene)return;if(p==='operator'&&!hasProm)return;if(p==='repressor_gene'&&!hasOp)return;if((p==='reporter_gene'||p==='structural_gene')&&!hasProm)return;if(p==='cap_binding_site'&&!hasProm)return;if(p==='enhancer'&&!hasProm)return;if(circ.includes(p)&&p!=='terminator')return;mask[i]=1});return mask}
+
+function parseJudge(t){const gm=t.match(/Science\s+Grade:\s*([0-9]\.[0-9]+|[0-9])/);const g=gm?parseFloat(gm[1]):.5;const cm=t.match(/Critique:\s*(.*?)(?=Lethal Errors|$)/s);const em=t.match(/Lethal\s+Errors:\s*(.*)/s);
+const errs=em?em[1].split('\n').map(s=>s.trim().replace(/^-\s*/,'')).filter(s=>s&&!s.includes('None')):[];
+return{science_grade:Math.max(0,Math.min(1,errs.length?0:g)),critique:cm?cm[1].trim():'',lethal_errors:errs,warnings:[]}}
+
+function judgePrompt(circ,reasoning,rw,ti,tn,hint){const ps=circ.map((p,i)=>`[${i+1}] ${p.toUpperCase()}`).join(' → ');const rep=['brake','silencer','switch','feedback','metabolic'];
+const needsOp=rep.some(k=>tn.toLowerCase().includes(k));const opRule=needsOp?'Operator Logic: Must be between Promoter and Gene.':'Operator Logic: NOT required for this task.';
+return{sys:"You are a Senior Professor of Synthetic Biology. Assign Science Grade 0.0-1.0. STRICT RULES: Lethal errors (gene before promoter)=G=0. Only penalize missing repressor if task needs repression. Respond in EXACT format: Science Grade, Mechanism Check, Critique, Lethal Errors.",
+usr:`Task: Level ${ti} — ${tn}\nGoal: ${hint}\nDNA: ${ps}\nReward: ${rw.toFixed(4)}\nReasoning: ${reasoning.join('; ')}\n\nRUBRIC:\n- Promoter upstream of gene (violation=G=0)\n- ${opRule}\n- Requires Promoter+Gene+Terminator\n\nOUTPUT FORMAT:\nScience Grade: [0.0-1.0]\nMechanism Check: [Confirmed/Failed]\nCritique: [2-3 sentences]\nLethal Errors: [None/List]`}}
+
+async function runEpisode(idx){
+  const task=TASKS[idx];const circuit=[];const rewards=[];const reasoning=[];let cumR=0;
+  selectTask(idx);document.getElementById('hdr-ep').textContent=(idx+1)+'/15';
+  const row=document.getElementById('tr-'+idx);row.classList.add('glow');document.getElementById('ti-'+idx).textContent='🔄';
+  document.getElementById('dna-strip').innerHTML='<span style="font-size:.72rem;color:var(--text-3)">5′ — assembling — 3′</span>';
+  updateRewardChart([]);updateMask(buildMask([],task.parts));
+
+  for(let step=0;step<10;step++){
+    const hasProm=circuit.some(p=>p.includes('promoter'));
+    const rem=task.parts.filter(p=>!circuit.includes(p)&&!(hasProm&&p.includes('promoter')));
+    if(!rem.length)break;
+    try{
+      const raw=await callGroq([{role:'system',content:sysMsg()},{role:'user',content:usrMsg(task.name,circuit,rem,task.hint)}]);
+      const jm=raw.match(/\{[\s\S]*\}/);if(!jm){rewards.push(-.1);addRewardBar(step,-.1);addLog(step,'Parse failed',-0.1);updateProg(step+1);await sl(S.delay);continue}
+      const parsed=JSON.parse(jm[0].replace(/[\x00-\x1F\x7F]/g,' '));
+      let part=parsed.action?.part;if(!part||!task.parts.includes(part))part=rem[0];
+      if(circuit.includes(part)&&part!=='terminator'){const alt=rem.find(p=>!circuit.includes(p));if(alt)part=alt;else break}
+
+      circuit.push(part);reasoning.push(parsed.reasoning||'');const r=reward(part,circuit);rewards.push(r);cumR+=r;
+
+      addDNA(part);addRewardBar(step,r);updateProg(step+1);setLiveReward(cumR);
+      updateMask(buildMask(circuit,task.parts));
+      addLog(step,`Placed <b>${part.replace(/_/g,' ')}</b>`,r);
+
+      if(part==='terminator')break;
+    }catch(e){console.error(e);rewards.push(-.1);addRewardBar(step,-.1);addLog(step,'Error: '+e.message,-.1);updateProg(step+1)}
+    await sl(S.delay);
+  }
+
+  // JUDGE
+  let verdict={science_grade:.5,critique:'No judge response',lethal_errors:[],warnings:[]};
+  try{const jp=judgePrompt(circuit,reasoning,cumR,idx+1,task.name,task.hint);verdict=parseJudge(await callGroq([{role:'system',content:jp.sys},{role:'user',content:jp.usr}],800))}catch(e){verdict.critique='Judge error: '+e.message}
+
+  const score=Math.round(cumR*verdict.science_grade*1e4)/1e4;
+  S.results[idx]={score,circuit,verdict,rewards,cumReward:cumR,name:task.name};
+
+  row.classList.remove('glow');document.getElementById('ti-'+idx).textContent=score>2?'✅':'❌';
+  const chip=document.getElementById('ts-'+idx);chip.textContent=score.toFixed(1);chip.className='score-chip '+(score>5?'hi':score>=2?'mid':'lo');
+  updateJudge(verdict);updateTrend();updateCum();updateStats();return score;
+}
+
+async function runAll(){
+  if(S.running)return;if(!S.apiKey&&!S.mock){showToast('Enter your Groq API Key in Settings');return}
+  S.running=true;setStatus('running');const btn=document.getElementById('run-btn');btn.textContent='⏸ Training...';btn.classList.add('running');
+  // Reset
+  S.results=Array(15).fill(null);buildTaskList();
+  for(let i=0;i<15;i++)await runEpisode(i);
+  S.running=false;setStatus('complete');btn.textContent='🔁 Retrain';btn.classList.remove('running');
+  await aiAnalysis();
+}
+
+async function aiAnalysis(){
+  const p=document.getElementById('ai-panel');p.classList.add('show');p.style.display='block';
+  document.getElementById('ai-content').innerHTML='<div class="skel w8"></div><div class="skel w6"></div><div class="skel w8"></div><div class="skel w4"></div>';
+  const summary=S.results.map((r,i)=>r?`Ep${i+1} (${TASKS[i].name}): Score=${r.score.toFixed(2)}, Circuit=[${r.circuit.join('→')}], G=${r.verdict.science_grade}`:`Ep${i+1}: N/A`).join('\n');
+  try{const raw=await callGroq([{role:'user',content:`Analyze these 15 RL episodes of synthetic biology circuit design:\n\n${summary}\n\nProvide: 1. Overall Pattern Analysis 2. Best Episode and why 3. Worst Episode and why 4. Biological Accuracy Trend 5. Recommendations. Use **headers** for each section.`}],1000);
+  document.getElementById('ai-content').innerHTML='<div class="ai-text">'+raw.replace(/\*\*(.+?)\*\*/g,'<h4>$1</h4>').replace(/\n/g,'<br>')+'</div>'}
+  catch(e){document.getElementById('ai-content').innerHTML=`<p style="color:var(--red)">Analysis failed: ${e.message}</p>`}}
+
+init();
+</script>
+</body>
+</html>
