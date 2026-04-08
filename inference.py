@@ -1,5 +1,4 @@
 import os
-import time
 import json
 from openai import OpenAI
 from environment import BioCircuitEnv
@@ -34,21 +33,19 @@ def ask_agent(state):
     system_msg = "You are a Synthetic Biology Expert. You ONLY respond in valid JSON."
     
     user_msg = f"""TASK: {state['task']}
-TASK HINT: {state.get('hint', 'Build a functional transcription unit.')}
-TARGET FLUORESCENCE: {state['target']}
-CURRENT CIRCUIT (5' to 3'): {placed}
+CURRENT CIRCUIT: {placed}
 REMAINING ALLOWED PARTS: {remaining}
 
-RULES:
-1. Always start with a PROMOTER if the circuit is empty.
-2. Place parts in biological order: Promoter first, Terminator last.
-3. Choose only from REMAINING ALLOWED PARTS — do not invent parts.
-4. Use the TASK HINT to decide which regulatory parts to include.
+LOGIC REQUIREMENTS FOR LEVEL 3:
+1. Sequence: Promoter -> Operator -> Repressor -> Gene -> Terminator.
+2. REASONING MUST: Explain that the LIGAND (Inducer) binds to the REPRESSOR.
+3. REASONING MUST: State this causes a CONFORMATIONAL CHANGE.
+4. REASONING MUST: State the Repressor then DETACHES from the Operator to turn the gene ON.
 
-YOUR RESPONSE (valid JSON only, no extra text):
+YOUR RESPONSE (JSON ONLY):
 {{
-  "action": {{"type": "place", "part": "exact_part_name_from_remaining_list"}},
-  "reasoning": "Biological explanation referencing the specific molecular mechanism for this task."
+  "action": {{"type": "place", "part": "part_name"}},
+  "reasoning": "Specifically describe the ligand-induced conformational change and release of steric hindrance."
 }}"""
 
     # Now the variables exist when we call the API
@@ -86,7 +83,6 @@ def run_hackathon_eval(task_idx):
         agent_reasoning.append(decision["reasoning"])
         
         state, reward, done = env.step(action)
-        time.sleep(1.2)
         print(f"Step {step+1}: Placed {action.get('part')} | Reward: {reward}")
         
         if done:
@@ -107,13 +103,6 @@ def run_hackathon_eval(task_idx):
     print(f"Science Grade: {verdict.science_grade}")
     print(f"Critique: {verdict.critique}")
     print(f"FINAL SCORE (R x G): {final_score}")
-    return final_score
 
 if __name__ == "__main__":
-    results = []
-    for task_idx in range(15):
-        score = run_hackathon_eval(task_idx)
-        results.append({"task": task_idx + 1, "final_score": score})
-    print("\n=== ALL 15 TASK RESULTS ===")
-    for r in results:
-        print(f"  Task {r['task']:02d}: Final Score = {r['final_score']:.4f}")
+    run_hackathon_eval(3) # Move to Level 4
