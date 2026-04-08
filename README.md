@@ -1,3 +1,14 @@
+---
+title: SynBio-RL OpenEnv
+emoji: 🧬
+colorFrom: red
+colorTo: teal
+sdk: docker
+pinned: true
+tags:
+  - openenv
+---
+
 # SynBio-RL — Synthetic Biology Reinforcement Learning Environment
 ### Meta OpenEnv Hackathon 2026 — by Bhavya
 
