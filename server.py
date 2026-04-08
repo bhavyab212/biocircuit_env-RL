@@ -55,23 +55,20 @@ def step(action: Action):
     )
 
 @app.get("/state")
-def state():
+def get_state():
     return env.state()
 
 @app.get("/tasks")
 def list_tasks():
-    return {
-        "tasks": [
-            {
-                "id": t["id"],
-                "name": t["name"],
-                "difficulty": "easy" if i < 5 else "medium" if i < 10 else "hard",
-                "target_output": t["target_output"]
-            }
-            for i, t in enumerate(env.tasks)
-        ],
-        "total": len(env.tasks)
-    }
+    result = []
+    for i, t in enumerate(env.tasks):
+        result.append({
+            "id": t.get("id", f"task_{i+1}"),
+            "name": t.get("name", t.get("task_name", f"Task {i+1}")),
+            "difficulty": "easy" if i < 5 else "medium" if i < 10 else "hard",
+            "target_output": t.get("target_output", 0.0)
+        })
+    return {"tasks": result, "total": len(result)}
 
 @app.get("/health")
 def health():
