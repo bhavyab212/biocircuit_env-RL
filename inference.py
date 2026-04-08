@@ -132,7 +132,7 @@ def run_hackathon_eval(task_idx):
         log_step(step + 1, action.get('part', 'submit'), norm_reward, done)
         rewards_list.append(norm_reward)
         print(f"Step {step+1}: Placed {action.get('part')} | Reward: {reward}")
-        time.sleep(1.2)
+        time.sleep(0.5)
 
         if done:
             break
@@ -165,7 +165,7 @@ if __name__ == "__main__":
     for task_idx in range(15):
         score = run_hackathon_eval(task_idx)
         all_results.append(score or 0.0)
-        time.sleep(1.2)
+        time.sleep(0.5)
 
     print("\n=== ALL 15 TASK RESULTS ===")
     for i, s in enumerate(all_results):
