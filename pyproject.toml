@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "server:app"
+server = "server.app:main"
 
 [project.urls]
 Homepage = "https://huggingface.co/spaces/Bhavyab2/SynBio-RL"
