@@ -40,7 +40,7 @@ pip install python-dotenv openai
 ### Configuration
 Create a `.env` file in the root directory:
 ```env
-API_KEY=your_groq_key_here
+HF_TOKEN=your_groq_key_here
 API_BASE_URL=https://api.groq.com/openai/v1
 MODEL_NAME=llama-3.3-70b-versatile
 JUDGE_MODEL=llama-3.3-70b-versatile
@@ -49,6 +49,9 @@ JUDGE_MODEL=llama-3.3-70b-versatile
 ### Run Evaluation
 ```bash
 python3 inference.py
+
+# View dashboard: open dashboard.html in your browser
+# API docs: https://bhavyab2-synbio-rl.hf.space/docs
 ```
 
 ---
