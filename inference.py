@@ -30,22 +30,28 @@ def ask_agent(state):
     ]
     
     # --- BUG FIX 2: DEFINE VARIABLES BEFORE USE ---
-    system_msg = "You are a Synthetic Biology Expert. You ONLY respond in valid JSON."
+    system_msg = (
+        "You are a Synthetic Biology Expert designing genetic circuits. "
+        "You ONLY respond in valid JSON. "
+        "CRITICAL RULE: Only apply regulatory logic (operators, repressors, inducers) "
+        "if the task hint explicitly mentions them. "
+        "Do NOT add an operator or repressor unless the task requires it. "
+        "For CAP/cAMP tasks, place: Promoter → CAP_binding_site → Reporter → Terminator. "
+        "For Enhancer tasks, place: Promoter → Enhancer → Reporter → Terminator. "
+        "For basic tasks, place: Promoter → Reporter → Terminator."
+    )
     
     user_msg = f"""TASK: {state['task']}
 CURRENT CIRCUIT: {placed}
 REMAINING ALLOWED PARTS: {remaining}
 
-LOGIC REQUIREMENTS FOR LEVEL 3:
-1. Sequence: Promoter -> Operator -> Repressor -> Gene -> Terminator.
-2. REASONING MUST: Explain that the LIGAND (Inducer) binds to the REPRESSOR.
-3. REASONING MUST: State this causes a CONFORMATIONAL CHANGE.
-4. REASONING MUST: State the Repressor then DETACHES from the Operator to turn the gene ON.
+Use the TASK HINT to construct your circuit logic. 
+HINT: {state.get('hint', '')}
 
 YOUR RESPONSE (JSON ONLY):
 {{
   "action": {{"type": "place", "part": "part_name"}},
-  "reasoning": "Specifically describe the ligand-induced conformational change and release of steric hindrance."
+  "reasoning": "Specifically describe the biological mechanism."
 }}"""
 
     # Now the variables exist when we call the API
@@ -65,7 +71,18 @@ YOUR RESPONSE (JSON ONLY):
         match = re.search(r'\{.*\}', raw, re.DOTALL)
         if match:
             clean_json = re.sub(r'[\x00-\x1F\x7F]', ' ', match.group(0))
-            return json.loads(clean_json)
+            parsed = json.loads(clean_json)
+            
+            part = parsed.get("action", {}).get("part")
+            # Enforce that the part must be in the available_parts or remaining
+            if part and part not in state['available_parts']:
+                if part == "repressor" and "repressor_gene" in remaining:
+                    parsed["action"]["part"] = "repressor_gene"
+                else:
+                    # Fallback to the first available remaining part to prevent crashing
+                    parsed["action"]["part"] = remaining[0] if remaining else None
+                    
+            return parsed
         return {"action": {"type": "submit", "part": None}, "reasoning": "No JSON block"}
     except Exception as e:
         return {"action": {"type": "submit", "part": None}, "reasoning": f"Parser Error: {e}"}
@@ -93,10 +110,11 @@ def run_hackathon_eval(task_idx):
     verdict = llm_judge(
         circuit_parts=state['circuit'],
         mechanism_trace=agent_reasoning,
-        fluorescence_out=state.get('fluorescence', 0.0), # Updated in environment
+        fluorescence_out=state.get('fluorescence', 0.0),
         math_reward=reward,
         task_id=task_idx + 1,
-        task_name=state['task']
+        task_name=state['task'],
+        task_hint=state.get('hint', '')
     )
     
     final_score = calculate_final_score(reward, verdict)

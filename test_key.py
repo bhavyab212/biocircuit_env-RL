@@ -1,5 +1,9 @@
-import http.client, json, os
+import http.client
+import json
+import os
+
 from dotenv import load_dotenv
+
 load_dotenv()
 
 conn = http.client.HTTPSConnection("api.groq.com")

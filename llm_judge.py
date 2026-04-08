@@ -90,19 +90,30 @@ class JudgeVerdict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _build_system_prompt() -> str:
-    return """You are a Senior Professor of Synthetic Biology evaluating an AI agent's genetic circuit design.
+    return """You are a Senior Professor of Synthetic Biology evaluating
+an AI agent's genetic circuit design for a specific named task.
+
 Your expertise includes:
 - Gene regulation (Lac operon, CAP-cAMP activation, LacI repression)
 - Cis-acting regulatory elements (Promoters, Operators, Enhancers, Terminators)
 - Signal transduction cascades
 
-Your job is to review the DNA sequence and biological explanation and assign a Science Grade (G) from 0.0 to 1.0.
+Assign a Science Grade (G) from 0.0 to 1.0 based ONLY on the actual
+parts present in the submitted DNA sequence and whether they are correct
+for the specific task being evaluated.
 
 STRICT RULES:
-1. Lethal Structural Error (e.g., Promoter downstream of Gene) = G = 0.0 ALWAYS. [cite: 1067]
-2. Missing Repressor where required = G capped at 0.4. [cite: 1078]
-3. Using Strong Promoter where Weak suffices = G capped at 0.8. [cite: 1080]
-4. You MUST respond in the EXACT output format requested."""
+1. Lethal Structural Error (Promoter downstream of Gene, or Gene before
+   Promoter) = G = 0.0 ALWAYS.
+2. Only penalize for a missing Repressor/Operator if the task involves
+   repression (task names containing: Brake, Silencer, Switch, Feedback,
+   Metabolic, Repression). Do NOT penalize activation/boosting tasks for
+   lacking a repressor.
+3. If a CAP Binding Site is present in an activation task, that is CORRECT
+   biology — do not penalize it.
+4. Using a Strong Promoter where a Weak one suffices = G capped at 0.8.
+5. You MUST respond in the EXACT output format requested.
+6. Do NOT invent missing elements that the task does not require."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +127,7 @@ def _build_circuit_prompt(
     math_reward      : float,
     task_id          : int,
     task_name        : str,
+    task_hint        : str = "",
 ) -> str:
     parts_formatted = "  →  ".join([f"[{i+1}] {p.upper()}" for i, p in enumerate(circuit_parts)])
     trace_formatted = "\n".join([f"  {line}" for line in mechanism_trace])
@@ -123,6 +135,7 @@ def _build_circuit_prompt(
     return f"""
 === AGENT CIRCUIT SUBMISSION ===
 Task: Level {task_id} — {task_name}
+Task Goal: {task_hint}
 DNA Sequence: {parts_formatted}
 Fluorescence: {fluorescence_out:.4f}
 Math Reward (R): {math_reward:.4f}
@@ -136,21 +149,31 @@ Mechanism Explanation:
 # 6.  RUBRIC PROMPT — [cite: 1065, 1072, 1081]
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_rubric_prompt(task_id: int) -> str:
-    # Task-specific key checks [cite: 1081-1083]
+def _build_rubric_prompt(task_id: int, task_name: str = "") -> str:
     task_key_checks = {
-        12: "LEVEL 12: Must mention cAMP recruitment of RNA Pol by CAP. [cite: 1081]",
-        13: "LEVEL 13: Must mention DNA looping. [cite: 1082]",
-        15: "LEVEL 15: Must mention phosphorylation cascade or 2nd messengers. [cite: 1083]",
+        4:  "LEVEL 4: Circuit uses CAP Binding Site for cAMP-mediated activation. This is CORRECT — do not penalize for missing Operator.",
+        6:  "LEVEL 6: Circuit uses Enhancer for DNA looping activation. This is CORRECT — Operator is NOT required.",
+        11: "LEVEL 11: Circuit uses CAP Binding Site for combinatorial activation. Operator is NOT required.",
+        12: "LEVEL 12: Must mention cAMP recruitment of RNA Pol by CAP.",
+        13: "LEVEL 13: Circuit uses Enhancer. Must mention DNA looping. Operator is NOT required.",
+        15: "LEVEL 15: Must mention phosphorylation cascade or 2nd messengers.",
     }
     active_key_check = task_key_checks.get(task_id, "Standard regulatory evaluation.")
 
+    repression_tasks = ["brake", "silencer", "switch", "feedback", "metabolic"]
+    needs_operator = any(kw in task_name.lower() for kw in repression_tasks)
+    operator_rule = (
+        "- Operator Logic: Must be between Promoter and Gene for steric hindrance."
+        if needs_operator
+        else "- Operator Logic: Operator is NOT required for this task. Do not penalize its absence."
+    )
+
     return f"""
-=== EVALUATION RUBRIC ===
-- Promoter Placement: Must be upstream (5') of gene. Violation = G=0. [cite: 1067]
-- Operator Logic: Must be between Promoter and Gene for steric hindrance. [cite: 1068]
-- Transcription Unit: Requires Promoter + Gene + Terminator. [cite: 1070]
-- Mechanistic Logic: Check for correct Inducer/Repressor use. [cite: 1076]
+=== EVALUATION RUBRIC FOR: {task_name} ===
+- Promoter Placement: Must be upstream (5') of gene. Violation = G=0.
+- {operator_rule}
+- Transcription Unit: Requires Promoter + Gene + Terminator.
+- Mechanistic Logic: Evaluate based only on parts actually present in the sequence.
 - Key Check: {active_key_check}
 
 === OUTPUT FORMAT ===
@@ -273,14 +296,14 @@ def _validate_grade(
 
     return max(0.0, min(grade, 1.0))
 
-def llm_judge(circuit_parts, mechanism_trace, fluorescence_out, math_reward, task_id, task_name, config=None):
+def llm_judge(circuit_parts, mechanism_trace, fluorescence_out, math_reward, task_id, task_name, task_hint="", config=None):
     if config is None: config = LLMJudgeConfig()
     if config.mock_mode: return JudgeVerdict(science_grade=0.8, parse_success=True)
 
     verdict = JudgeVerdict()
     messages = [
         {"role": "system", "content": _build_system_prompt()},
-        {"role": "user", "content": _build_circuit_prompt(circuit_parts, mechanism_trace, fluorescence_out, math_reward, task_id, task_name) + _build_rubric_prompt(task_id)}
+        {"role": "user", "content": _build_circuit_prompt(circuit_parts, mechanism_trace, fluorescence_out, math_reward, task_id, task_name, task_hint) + _build_rubric_prompt(task_id, task_name)}
     ]
 
     try:
