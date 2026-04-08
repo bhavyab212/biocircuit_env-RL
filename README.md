@@ -2,7 +2,7 @@
 title: SynBio-RL OpenEnv
 emoji: 🧬
 colorFrom: red
-colorTo: teal
+colorTo: blue
 sdk: docker
 pinned: true
 tags:
