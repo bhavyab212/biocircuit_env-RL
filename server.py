@@ -14,12 +14,16 @@ class Action(BaseModel):
     type: str = "place"
     part: Optional[str] = None
 
+class ResetRequest(BaseModel):
+    task_id: Optional[int] = 0
+
 class Observation(BaseModel):
     task: str
     circuit: List[str]
     available_parts: List[str]
     target: float
     fluorescence: float
+    math_reward: float
     steps: int
     hint: str
 
@@ -33,9 +37,9 @@ class ResetResponse(BaseModel):
     observation: Observation
 
 @app.post("/reset", response_model=ResetResponse)
-def reset(task_id: Optional[int] = 0):
+def reset(req: ResetRequest = ResetRequest()):
     global current_task_idx
-    current_task_idx = task_id or 0
+    current_task_idx = req.task_id or 0
     state = env.reset(current_task_idx)
     return ResetResponse(observation=Observation(**state))
 
@@ -53,6 +57,21 @@ def step(action: Action):
 @app.get("/state")
 def state():
     return env.state()
+
+@app.get("/tasks")
+def list_tasks():
+    return {
+        "tasks": [
+            {
+                "id": t["id"],
+                "name": t["name"],
+                "difficulty": "easy" if i < 5 else "medium" if i < 10 else "hard",
+                "target_output": t["target_output"]
+            }
+            for i, t in enumerate(env.tasks)
+        ],
+        "total": len(env.tasks)
+    }
 
 @app.get("/health")
 def health():
