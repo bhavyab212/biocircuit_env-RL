@@ -5,7 +5,7 @@ build-backend = "setuptools.backends.legacy:build"
 [project]
 name = "synbio-rl"
 version = "1.0.0"
-description = "Synthetic Biology Reinforcement Learning Environment — Meta OpenEnv Hackathon 2026"
+description = "Synthetic Biology RL Environment — Meta OpenEnv Hackathon 2026"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -19,8 +19,12 @@ dependencies = [
     "pydantic==2.7.1",
     "python-dotenv==1.0.1",
     "openai==1.30.1",
-    "python-multipart==0.0.9"
+    "python-multipart==0.0.9",
+    "openenv-core>=0.2.0"
 ]
+
+[project.scripts]
+server = "server:app"
 
 [project.urls]
 Homepage = "https://huggingface.co/spaces/Bhavyab2/SynBio-RL"
