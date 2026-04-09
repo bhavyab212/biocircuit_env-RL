@@ -80,16 +80,23 @@ YOUR RESPONSE (JSON ONLY):
   "reasoning": "Specifically describe the biological mechanism."
 }}"""
 
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_msg}
-        ],
-        temperature=0.0
-    )
-
-    raw = response.choices[0].message.content.strip()
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg}
+            ],
+            temperature=0.0
+        )
+        raw = response.choices[0].message.content.strip()
+    except Exception as api_err:
+        print(f"[WARN] LLM API error: {api_err}", flush=True)
+        fallback = remaining[0] if remaining else None
+        return {
+            "action": {"type": "place" if fallback else "submit", "part": fallback},
+            "reasoning": f"API fallback due to error: {api_err}"
+        }
 
     try:
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -138,19 +145,22 @@ def run_hackathon_eval(task_idx):
             break
 
     print("\n[Professor Llama 3 is evaluating...]")
-    verdict = llm_judge(
-        circuit_parts=state['circuit'],
-        mechanism_trace=agent_reasoning,
-        fluorescence_out=state.get('fluorescence', 0.0),
-        math_reward=reward,
-        task_id=task_idx + 1,
-        task_name=state['task']
-    )
-
-    final_score = calculate_final_score(reward, verdict)
-    print(f"Science Grade: {verdict.science_grade}")
-    print(f"Critique: {verdict.critique}")
-    print(f"FINAL SCORE (R x G): {final_score}")
+    try:
+        verdict = llm_judge(
+            circuit_parts=state['circuit'],
+            mechanism_trace=agent_reasoning,
+            fluorescence_out=state.get('fluorescence', 0.0),
+            math_reward=reward,
+            task_id=task_idx + 1,
+            task_name=state['task']
+        )
+        final_score = calculate_final_score(reward, verdict)
+        print(f"Science Grade: {verdict.science_grade}")
+        print(f"Critique: {verdict.critique}")
+        print(f"FINAL SCORE (R x G): {final_score}")
+    except Exception as judge_err:
+        print(f"[WARN] Judge error: {judge_err}", flush=True)
+        final_score = reward
 
     norm_final = min(max(round(final_score / 10.0, 4), 0.0), 1.0)
     log_end(norm_final > 0.1, env.steps, norm_final, rewards_list)
@@ -163,8 +173,12 @@ def run_hackathon_eval(task_idx):
 if __name__ == "__main__":
     all_results = []
     for task_idx in range(15):
-        score = run_hackathon_eval(task_idx)
-        all_results.append(score or 0.0)
+        try:
+            score = run_hackathon_eval(task_idx)
+            all_results.append(score or 0.0)
+        except Exception as e:
+            print(f"[WARN] Task {task_idx+1} failed: {e}", flush=True)
+            all_results.append(0.0)
         time.sleep(0.5)
 
     print("\n=== ALL 15 TASK RESULTS ===")
