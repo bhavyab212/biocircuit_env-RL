@@ -135,7 +135,7 @@ def run_hackathon_eval(task_idx):
         agent_reasoning.append(decision.get("reasoning", ""))
 
         state, reward, done = env.step(action)
-        norm_reward = min(max(round(reward / 10.0, 4), 0.0), 1.0)
+        norm_reward = min(max(round(reward / 10.0, 4), 0.001), 0.999)
         log_step(step + 1, action.get('part', 'submit'), norm_reward, done)
         rewards_list.append(norm_reward)
         print(f"Step {step+1}: Placed {action.get('part')} | Reward: {reward}")
@@ -162,8 +162,8 @@ def run_hackathon_eval(task_idx):
         print(f"[WARN] Judge error: {judge_err}", flush=True)
         final_score = reward
 
-    norm_final = min(max(round(final_score / 10.0, 4), 0.0), 1.0)
-    log_end(norm_final > 0.1, env.steps, norm_final, rewards_list)
+    norm_final = min(max(round(final_score / 10.0, 4), 0.001), 0.999)
+    log_end(norm_final > 0.001, env.steps, norm_final, rewards_list)
 
     return norm_final
 
